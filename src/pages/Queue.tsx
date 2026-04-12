@@ -3,9 +3,12 @@ import { cn } from '../lib/utils';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { processImage, queue } from '../lib/ai';
+import { AnimatedButton } from '../components/ui/animated-button';
 
 export function Queue() {
-  const { assets, logs, isProcessing } = useStore();
+  const assets = useStore(state => state.assets);
+  const logs = useStore(state => state.logs);
+  const isProcessing = useStore(state => state.isProcessing);
   const [throughput, setThroughput] = useState(0);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const navigate = useNavigate();
@@ -47,15 +50,15 @@ export function Queue() {
           </p>
         </div>
         <div>
-          <button 
+          <AnimatedButton 
             onClick={() => {
               useStore.getState().startNewBatch();
               navigate('/upload');
             }}
-            className="px-8 py-4 bg-white text-black text-xs font-black tracking-widest rounded-full uppercase hover:scale-[1.02] transition-transform active:scale-[0.98] shadow-2xl"
+            className="px-8 py-4 text-xs font-black tracking-widest uppercase hover:scale-[1.02] transition-transform active:scale-[0.98] shadow-2xl"
           >
             New Batch
-          </button>
+          </AnimatedButton>
         </div>
       </div>
 

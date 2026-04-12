@@ -3,11 +3,13 @@ import { useStore } from '../store/useStore';
 import React, { useState, useEffect } from 'react';
 import { cn } from '../lib/utils';
 import { processImage } from '../lib/ai';
+import { AnimatedButton } from '../components/ui/animated-button';
 
 export function Editor() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { assets, updateAsset } = useStore();
+  const assets = useStore(state => state.assets);
+  const updateAsset = useStore(state => state.updateAsset);
   
   const asset = assets.find(a => a.id === id);
   
@@ -251,12 +253,12 @@ export function Editor() {
           >
             Discard
           </button>
-          <button 
+          <AnimatedButton 
             onClick={handleSave}
-            className="flex-[2] px-4 py-3.5 rounded-sm bg-white text-black text-[10px] font-bold uppercase tracking-widest hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
+            className="flex-[2] px-4 py-3.5 rounded-sm text-[10px] uppercase tracking-widest flex items-center justify-center gap-2"
           >
             Apply Changes
-          </button>
+          </AnimatedButton>
         </div>
       </aside>
     </div>

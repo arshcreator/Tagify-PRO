@@ -1,10 +1,16 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { cn } from '../lib/utils';
 import { useState } from 'react';
+import { AnimatedButton } from '../components/ui/animated-button';
 
 export function Dashboard() {
-  const { assets, searchQuery, currentBatchId, startNewBatch, removeBatch } = useStore();
+  const navigate = useNavigate();
+  const assets = useStore(state => state.assets);
+  const searchQuery = useStore(state => state.searchQuery);
+  const currentBatchId = useStore(state => state.currentBatchId);
+  const startNewBatch = useStore(state => state.startNewBatch);
+  const removeBatch = useStore(state => state.removeBatch);
   const [filter, setFilter] = useState<'all' | 'completed' | 'processing' | 'pending' | 'error'>('all');
 
   const filteredAssets = assets.filter(a => {
@@ -69,13 +75,13 @@ export function Dashboard() {
           </p>
         </div>
         <div className="flex flex-wrap gap-4">
-          <button 
+          <AnimatedButton 
             onClick={startNewBatch}
-            className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-white text-black text-[11px] font-bold tracking-widest uppercase hover:bg-zinc-200 transition-all"
+            className="text-[11px] tracking-widest uppercase"
           >
             <span className="material-symbols-outlined text-[14px]">add</span>
             New Batch
-          </button>
+          </AnimatedButton>
           <button 
             onClick={handleClearOldBatches}
             disabled={assets.filter(a => a.batchId !== currentBatchId).length === 0}
@@ -84,14 +90,14 @@ export function Dashboard() {
             <span className="material-symbols-outlined text-[14px]">delete_sweep</span>
             Clear Old Batches
           </button>
-          <button 
+          <AnimatedButton 
             onClick={handleExportCSV}
             disabled={assets.filter(a => a.status === 'completed').length === 0}
-            className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-white/10 text-white text-[11px] font-bold tracking-widest uppercase border border-white/10 hover:bg-white/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="text-[11px] tracking-widest uppercase"
           >
             <span className="material-symbols-outlined text-[14px]">download</span>
             Download Latest CSV
-          </button>
+          </AnimatedButton>
           <select 
             className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-white/5 text-white/60 text-[11px] font-bold tracking-widest uppercase border border-white/5 hover:bg-white/10 transition-all appearance-none outline-none"
             value={filter}
@@ -113,12 +119,12 @@ export function Dashboard() {
           <p className="text-white/40 text-sm mb-8 max-w-md">
             Upload images to automatically generate metadata, titles, and tags using AI.
           </p>
-          <Link 
-            to="/upload"
-            className="px-8 py-3 bg-white text-black rounded-full text-[11px] font-bold tracking-widest uppercase hover:bg-zinc-200 transition-colors"
+          <AnimatedButton 
+            onClick={() => navigate('/upload')}
+            className="px-8 py-3 text-[11px] tracking-widest uppercase"
           >
             Upload Images
-          </Link>
+          </AnimatedButton>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">

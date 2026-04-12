@@ -1,9 +1,11 @@
 import { useStore } from '../store/useStore';
 import { useState } from 'react';
+import { AnimatedButton } from '../components/ui/animated-button';
 import { cn } from '../lib/utils';
 
 export function Settings() {
-  const { settings, updateSettings } = useStore();
+  const settings = useStore(state => state.settings);
+  const updateSettings = useStore(state => state.updateSettings);
   const [saved, setSaved] = useState(false);
 
   const handleSave = () => {
@@ -143,9 +145,9 @@ export function Settings() {
         </section>
 
         <div className="pt-8 flex justify-end">
-          <button 
+          <AnimatedButton 
             onClick={handleSave}
-            className="px-8 py-3 bg-white text-black rounded-full text-[11px] font-bold tracking-widest uppercase hover:bg-zinc-200 transition-colors flex items-center gap-2"
+            className="px-8 py-3 text-[11px] tracking-widest uppercase flex items-center gap-2"
           >
             {saved ? (
               <>
@@ -155,7 +157,7 @@ export function Settings() {
             ) : (
               'Save Settings'
             )}
-          </button>
+          </AnimatedButton>
         </div>
       </div>
     </div>

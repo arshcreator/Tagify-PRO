@@ -4,11 +4,15 @@ import { useStore } from '../store/useStore';
 import React from 'react';
 import { auth } from '../lib/firebase';
 import { signOut } from 'firebase/auth';
+import { AnimatedButton } from './ui/animated-button';
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { assets, searchQuery, setSearchQuery, user } = useStore();
+  const assets = useStore(state => state.assets);
+  const searchQuery = useStore(state => state.searchQuery);
+  const setSearchQuery = useStore(state => state.setSearchQuery);
+  const user = useStore(state => state.user);
   
   const handleLogout = async () => {
     await signOut(auth);
@@ -89,13 +93,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {/* Left Sidebar */}
         <aside className="w-20 lg:w-72 flex flex-col border-r border-white/5 bg-white/5 backdrop-blur-2xl py-10 px-8">
           <div className="flex flex-col gap-10">
-            <Link 
-              to="/upload"
-              className="flex items-center justify-center gap-3 px-4 py-4 rounded-full bg-white text-black transition-all hover:bg-zinc-200 group"
+            <AnimatedButton 
+              onClick={() => navigate('/upload')}
+              className="px-4 py-4"
             >
               <span className="material-symbols-outlined text-xl">add</span>
               <span className="hidden lg:block text-[11px] font-bold tracking-widest uppercase">Upload</span>
-            </Link>
+            </AnimatedButton>
             
             <div className="space-y-6">
               <p className="hidden lg:block px-4 text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">Workspace</p>

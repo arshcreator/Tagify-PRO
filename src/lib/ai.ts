@@ -4,6 +4,63 @@ import PQueue from 'p-queue';
 
 export const queue = new PQueue({ concurrency: 2 });
 
+async function compressImage(file: File, maxWidth = 1024, maxHeight = 1024): Promise<{ base64: string, mimeType: string }> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      
+      let width = img.width;
+      let height = img.height;
+      
+      if (width > maxWidth || height > maxHeight) {
+        const ratio = Math.min(maxWidth / width, maxHeight / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+      
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('Could not get canvas context'));
+        return;
+      }
+      
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      // Always compress to JPEG for AI processing to save bandwidth and memory
+      const mimeType = 'image/jpeg';
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          reject(new Error('Failed to compress image'));
+          return;
+        }
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const dataUrl = reader.result as string;
+          resolve({
+            base64: dataUrl.split(',')[1],
+            mimeType
+          });
+        };
+        reader.readAsDataURL(blob);
+      }, mimeType, 0.8);
+    };
+    
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Failed to load image for compression'));
+    };
+    
+    img.src = url;
+  });
+}
+
 async function withRetry<T>(
   operation: () => Promise<T>,
   maxRetries: number = 5,
@@ -38,25 +95,20 @@ export async function processImage(assetId: string) {
   store.addLog(`Started processing ${asset.file.name}`, 'SYS-KRNL', 'info');
 
   try {
-    // Convert file to base64
-    const base64Data = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve((reader.result as string).split(',')[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(asset.file);
-    });
+    // Compress and convert file to base64
+    const { base64: base64Data, mimeType } = await compressImage(asset.file);
 
     store.updateAsset(assetId, { progress: 30 });
 
     let result;
 
     // Determine which API to use based on available keys
-    if (settings.geminiKey || process.env.GEMINI_API_KEY) {
-      result = await withRetry(() => processWithGemini(base64Data, asset.file.type, settings));
+    if (settings.groqKeys && settings.groqKeys.length > 0) {
+      result = await withRetry(() => processWithGroq(base64Data, mimeType, settings));
     } else if (settings.openaiKey) {
-      result = await withRetry(() => processWithOpenAI(base64Data, asset.file.type, settings));
-    } else if (settings.groqKeys && settings.groqKeys.length > 0) {
-      result = await withRetry(() => processWithGroq(base64Data, asset.file.type, settings));
+      result = await withRetry(() => processWithOpenAI(base64Data, mimeType, settings));
+    } else if (settings.geminiKey || process.env.GEMINI_API_KEY) {
+      result = await withRetry(() => processWithGemini(base64Data, mimeType, settings));
     } else {
       throw new Error('No API keys configured');
     }

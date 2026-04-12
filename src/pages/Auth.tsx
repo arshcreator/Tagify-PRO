@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth, googleProvider } from '../lib/firebase';
-import { useStore } from '../store/useStore';
+import { AnimatedButton } from '../components/ui/animated-button';
 
 export function Auth() {
   const [error, setError] = useState('');
@@ -33,19 +33,24 @@ export function Auth() {
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500 text-sm text-center">
-            {error}
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500 text-sm text-center flex flex-col gap-2">
+            <span>{error}</span>
+            {error.includes('auth/unauthorized-domain') && (
+              <span className="text-xs text-red-400/80">
+                This app URL needs to be added to your Firebase Console under Authentication &gt; Settings &gt; Authorized Domains.
+              </span>
+            )}
           </div>
         )}
 
-        <button
+        <AnimatedButton
           onClick={handleGoogleLogin}
           disabled={isLoading}
-          className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-white text-black rounded-full text-[11px] font-bold tracking-widest uppercase hover:bg-zinc-200 transition-colors disabled:opacity-50"
+          className="w-full px-6 py-4 text-[11px] tracking-widest uppercase"
         >
           <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
           {isLoading ? 'Signing in...' : 'Continue with Google'}
-        </button>
+        </AnimatedButton>
 
         <p className="mt-8 text-center text-[10px] text-white/30 uppercase tracking-widest">
           By continuing, you agree to our Terms of Service and Privacy Policy.

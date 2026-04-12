@@ -3,10 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { cn } from '../lib/utils';
 import { processImage, queue } from '../lib/ai';
+import { AnimatedButton } from '../components/ui/animated-button';
 
 export function Upload() {
   const [isDragging, setIsDragging] = useState(false);
-  const { addAssets, assets, setProcessing } = useStore();
+  const addAssets = useStore(state => state.addAssets);
+  const assets = useStore(state => state.assets);
+  const setProcessing = useStore(state => state.setProcessing);
   const navigate = useNavigate();
 
   const handleDrag = useCallback((e: React.DragEvent) => {
@@ -107,9 +110,9 @@ export function Upload() {
               </div>
             </div>
             
-            <div className="relative z-10 px-10 py-3 bg-white hover:bg-slate-200 text-black rounded text-[11px] font-bold tracking-widest uppercase transition-all">
+            <AnimatedButton className="relative z-10 px-10 py-3 text-[11px] tracking-widest uppercase">
               Select Files
-            </div>
+            </AnimatedButton>
             
             <input 
               type="file" 
