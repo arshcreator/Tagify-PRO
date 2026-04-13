@@ -136,12 +136,14 @@ export function Dashboard() {
             >
               <div className="aspect-[4/5] relative overflow-hidden bg-zinc-900 flex items-center justify-center">
                 {asset.url ? (
-                  <div 
+                  <img 
+                    src={asset.url}
+                    alt={asset.title || asset.file.name}
+                    loading="lazy"
                     className={cn(
-                      "absolute inset-0 bg-cover bg-center transition-all duration-700 group-hover:scale-105",
+                      "absolute inset-0 w-full h-full object-cover transition-all duration-700 group-hover:scale-105",
                       asset.status === 'completed' ? "grayscale-0 opacity-100" : "grayscale opacity-80"
                     )}
-                    style={{ backgroundImage: `url(${asset.url})` }}
                   />
                 ) : (
                   <span className="material-symbols-outlined text-4xl text-white/10">image</span>

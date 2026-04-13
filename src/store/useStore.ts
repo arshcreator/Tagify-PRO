@@ -106,23 +106,26 @@ export const useStore = create<AppState>((set) => ({
     }));
 
     if (state.user) {
-      newAssets.forEach(asset => {
-        setDoc(doc(db, `users/${state.user!.uid}/history`, asset.id), {
-          id: asset.id,
-          userId: state.user!.uid,
-          fileName: asset.file.name,
-          fileType: asset.file.type,
-          fileSize: asset.file.size,
-          title: asset.title,
-          description: asset.description,
-          keywords: asset.keywords,
-          category: asset.category,
-          batchId: asset.batchId,
-          status: asset.status,
-          progress: asset.progress,
-          createdAt: asset.createdAt,
-        }).catch(console.error);
-      });
+      // Defer saving to Firestore to avoid blocking the main thread during upload
+      setTimeout(() => {
+        newAssets.forEach(asset => {
+          setDoc(doc(db, `users/${state.user!.uid}/history`, asset.id), {
+            id: asset.id,
+            userId: state.user!.uid,
+            fileName: asset.file.name,
+            fileType: asset.file.type,
+            fileSize: asset.file.size,
+            title: asset.title,
+            description: asset.description,
+            keywords: asset.keywords,
+            category: asset.category,
+            batchId: asset.batchId,
+            status: asset.status,
+            progress: asset.progress,
+            createdAt: asset.createdAt,
+          }).catch(console.error);
+        });
+      }, 100);
     }
 
     return { assets: [...state.assets, ...newAssets] };

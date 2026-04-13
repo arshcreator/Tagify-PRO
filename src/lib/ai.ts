@@ -5,36 +5,49 @@ import PQueue from 'p-queue';
 export const queue = new PQueue({ concurrency: 2 });
 
 async function compressImage(file: File, maxWidth = 1024, maxHeight = 1024): Promise<{ base64: string, mimeType: string }> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
+  try {
+    const bitmap = await createImageBitmap(file);
+    let width = bitmap.width;
+    let height = bitmap.height;
     
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      
-      let width = img.width;
-      let height = img.height;
-      
-      if (width > maxWidth || height > maxHeight) {
-        const ratio = Math.min(maxWidth / width, maxHeight / height);
-        width = Math.round(width * ratio);
-        height = Math.round(height * ratio);
-      }
-      
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      
+    if (width > maxWidth || height > maxHeight) {
+      const ratio = Math.min(maxWidth / width, maxHeight / height);
+      width = Math.round(width * ratio);
+      height = Math.round(height * ratio);
+    }
+    
+    const mimeType = 'image/jpeg';
+    
+    if (typeof OffscreenCanvas !== 'undefined') {
+      const canvas = new OffscreenCanvas(width, height);
       const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        reject(new Error('Could not get canvas context'));
-        return;
+      if (ctx) {
+        ctx.drawImage(bitmap, 0, 0, width, height);
+        bitmap.close();
+        const blob = await canvas.convertToBlob({ type: mimeType, quality: 0.8 });
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const dataUrl = reader.result as string;
+            resolve({ base64: dataUrl.split(',')[1], mimeType });
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
       }
-      
-      ctx.drawImage(img, 0, 0, width, height);
-      
-      // Always compress to JPEG for AI processing to save bandwidth and memory
-      const mimeType = 'image/jpeg';
+    }
+    
+    // Fallback to regular canvas
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Could not get canvas context');
+    
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    bitmap.close();
+    
+    return new Promise((resolve, reject) => {
       canvas.toBlob((blob) => {
         if (!blob) {
           reject(new Error('Failed to compress image'));
@@ -43,22 +56,16 @@ async function compressImage(file: File, maxWidth = 1024, maxHeight = 1024): Pro
         const reader = new FileReader();
         reader.onloadend = () => {
           const dataUrl = reader.result as string;
-          resolve({
-            base64: dataUrl.split(',')[1],
-            mimeType
-          });
+          resolve({ base64: dataUrl.split(',')[1], mimeType });
         };
+        reader.onerror = reject;
         reader.readAsDataURL(blob);
       }, mimeType, 0.8);
-    };
-    
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error('Failed to load image for compression'));
-    };
-    
-    img.src = url;
-  });
+    });
+  } catch (error) {
+    console.error('Error in compressImage:', error);
+    throw error;
+  }
 }
 
 async function withRetry<T>(
