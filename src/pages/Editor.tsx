@@ -39,7 +39,11 @@ export function Editor() {
   }
 
   const handleSave = () => {
-    updateAsset(asset.id, { title, description, keywords });
+    updateAsset(asset.id, { 
+      title: title.substring(0, 999), 
+      description: description.substring(0, 4999), 
+      keywords: keywords.slice(0, 100) 
+    });
     navigate('/');
   };
 
@@ -164,11 +168,11 @@ export function Editor() {
           <div className="grid grid-cols-2 gap-px bg-white/5 rounded overflow-hidden border border-white/5">
             <div className="bg-black p-4">
               <p className="text-[9px] text-white/50 uppercase tracking-widest mb-1">Type</p>
-              <p className="text-sm font-medium text-white/90 uppercase">{asset.file.type.split('/')[1]}</p>
+              <p className="text-sm font-medium text-white/90 uppercase">{(asset.file?.type || asset.fileType || '').split('/')[1] || 'UNKNOWN'}</p>
             </div>
             <div className="bg-black p-4">
               <p className="text-[9px] text-white/50 uppercase tracking-widest mb-1">Size</p>
-              <p className="text-sm font-medium text-white/90">{(asset.file.size / (1024 * 1024)).toFixed(1)} MB</p>
+              <p className="text-sm font-medium text-white/90">{((asset.file?.size || asset.fileSize || 0) / (1024 * 1024)).toFixed(1)} MB</p>
             </div>
             {asset.category && (
               <div className="bg-black p-4 col-span-2">

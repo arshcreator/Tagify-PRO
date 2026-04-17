@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 import { User } from 'firebase/auth';
-import { doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { doc, setDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 
 export type AssetStatus = 'pending' | 'processing' | 'completed' | 'error' | 'paused';
 
@@ -106,10 +106,16 @@ export const useStore = create<AppState>((set) => ({
     }));
 
     if (state.user) {
-      // Defer saving to Firestore to avoid blocking the main thread during upload
-      setTimeout(() => {
-        newAssets.forEach(asset => {
-          setDoc(doc(db, `users/${state.user!.uid}/history`, asset.id), {
+      const path = `users/${state.user!.uid}/history`;
+      
+      // Process in chunks of 500 (Firestore batch limit)
+      const chunkSize = 500;
+      for (let i = 0; i < newAssets.length; i += chunkSize) {
+        const chunk = newAssets.slice(i, i + chunkSize);
+        const batch = writeBatch(db);
+        
+        chunk.forEach(asset => {
+          batch.set(doc(db, path, asset.id), {
             id: asset.id,
             userId: state.user!.uid,
             fileName: asset.file.name,
@@ -123,9 +129,11 @@ export const useStore = create<AppState>((set) => ({
             status: asset.status,
             progress: asset.progress,
             createdAt: asset.createdAt,
-          }).catch(console.error);
+          });
         });
-      }, 100);
+        
+        batch.commit().catch((error) => handleFirestoreError(error, OperationType.CREATE, path));
+      }
     }
 
     return { assets: [...state.assets, ...newAssets] };
@@ -135,7 +143,8 @@ export const useStore = create<AppState>((set) => ({
     if (state.user) {
       const asset = state.assets.find(a => a.id === id);
       if (asset) {
-        updateDoc(doc(db, `users/${state.user.uid}/history`, id), updates).catch(console.error);
+        const path = `users/${state.user.uid}/history`;
+        updateDoc(doc(db, path, id), updates).catch((error) => handleFirestoreError(error, OperationType.UPDATE, path));
       }
     }
     return {
@@ -149,18 +158,28 @@ export const useStore = create<AppState>((set) => ({
     const asset = state.assets.find(a => a.id === id);
     if (asset) URL.revokeObjectURL(asset.url);
     if (state.user) {
-      deleteDoc(doc(db, `users/${state.user.uid}/history`, id)).catch(console.error);
+      const path = `users/${state.user.uid}/history`;
+      deleteDoc(doc(db, path, id)).catch((error) => handleFirestoreError(error, OperationType.DELETE, path));
     }
     return { assets: state.assets.filter(a => a.id !== id) };
   }),
 
   clearAssets: () => set((state) => {
-    state.assets.forEach(a => {
-      URL.revokeObjectURL(a.url);
-      if (state.user) {
-        deleteDoc(doc(db, `users/${state.user.uid}/history`, a.id)).catch(console.error);
+    if (state.user) {
+      const path = `users/${state.user.uid}/history`;
+      const chunkSize = 500;
+      for (let i = 0; i < state.assets.length; i += chunkSize) {
+        const chunk = state.assets.slice(i, i + chunkSize);
+        const batch = writeBatch(db);
+        chunk.forEach(a => {
+          URL.revokeObjectURL(a.url);
+          batch.delete(doc(db, path, a.id));
+        });
+        batch.commit().catch((error) => handleFirestoreError(error, OperationType.DELETE, path));
       }
-    });
+    } else {
+      state.assets.forEach(a => URL.revokeObjectURL(a.url));
+    }
     return { assets: [] };
   }),
 
@@ -168,19 +187,29 @@ export const useStore = create<AppState>((set) => ({
 
   removeBatch: (batchId) => set((state) => {
     const assetsToRemove = state.assets.filter(a => a.batchId === batchId);
-    assetsToRemove.forEach(a => {
-      URL.revokeObjectURL(a.url);
-      if (state.user) {
-        deleteDoc(doc(db, `users/${state.user.uid}/history`, a.id)).catch(console.error);
+    if (state.user) {
+      const path = `users/${state.user.uid}/history`;
+      const chunkSize = 500;
+      for (let i = 0; i < assetsToRemove.length; i += chunkSize) {
+        const chunk = assetsToRemove.slice(i, i + chunkSize);
+        const batch = writeBatch(db);
+        chunk.forEach(a => {
+          URL.revokeObjectURL(a.url);
+          batch.delete(doc(db, path, a.id));
+        });
+        batch.commit().catch((error) => handleFirestoreError(error, OperationType.DELETE, path));
       }
-    });
+    } else {
+      assetsToRemove.forEach(a => URL.revokeObjectURL(a.url));
+    }
     return { assets: state.assets.filter(a => a.batchId !== batchId) };
   }),
 
   updateSettings: (updates) => set((state) => {
     const newSettings = { ...state.settings, ...updates };
     if (state.user) {
-      updateDoc(doc(db, 'users', state.user.uid), { settings: newSettings }).catch(console.error);
+      const path = 'users';
+      updateDoc(doc(db, path, state.user.uid), { settings: newSettings }).catch((error) => handleFirestoreError(error, OperationType.UPDATE, path));
     }
     return { settings: newSettings };
   }),

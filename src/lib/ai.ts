@@ -123,10 +123,10 @@ export async function processImage(assetId: string) {
     store.updateAsset(assetId, {
       status: 'completed',
       progress: 100,
-      title: result.title,
-      description: result.description,
-      keywords: result.keywords,
-      category: result.category || 'Uncategorized',
+      title: result.title?.substring(0, 999) || '',
+      description: result.description?.substring(0, 4999) || '',
+      keywords: Array.isArray(result.keywords) ? result.keywords.slice(0, 100) : [],
+      category: (result.category || 'Uncategorized').substring(0, 199),
       confidence: Math.floor(Math.random() * 10) + 90, // Mock confidence
     });
     
@@ -134,7 +134,7 @@ export async function processImage(assetId: string) {
 
   } catch (error: any) {
     console.error('Error processing image:', error);
-    store.updateAsset(assetId, { status: 'error', progress: 0, error: error.message });
+    store.updateAsset(assetId, { status: 'error', progress: 0, error: (error.message || 'Unknown error').substring(0, 999) });
     store.addLog(`Error processing ${asset.file.name}: ${error.message}`, 'SYS-ERR', 'error');
   }
 }
@@ -203,7 +203,9 @@ async function processWithOpenAI(base64Data: string, mimeType: string, settings:
 
   if (!response.ok) throw new Error(`OpenAI API error: ${response.statusText}`);
   const data = await response.json();
-  return JSON.parse(data.choices[0].message.content);
+  let content = data.choices[0].message.content;
+  content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+  return JSON.parse(content);
 }
 
 let groqKeyIndex = 0;
@@ -224,7 +226,7 @@ async function processWithGroq(base64Data: string, mimeType: string, settings: a
       'Authorization': `Bearer ${currentKey}`
     },
     body: JSON.stringify({
-      model: 'llama-3.2-90b-vision-preview',
+      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
       messages: [
         {
           role: 'user',
@@ -233,12 +235,23 @@ async function processWithGroq(base64Data: string, mimeType: string, settings: a
             { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64Data}` } }
           ]
         }
-      ],
-      response_format: { type: 'json_object' }
+      ]
     })
   });
 
-  if (!response.ok) throw new Error(`Groq API error: ${response.statusText}`);
+  if (!response.ok) {
+    let errorMsg = response.statusText;
+    try {
+      const errorData = await response.json();
+      errorMsg = errorData.error?.message || JSON.stringify(errorData);
+    } catch (e) {
+      const errorText = await response.text();
+      if (errorText) errorMsg = errorText;
+    }
+    throw new Error(`Groq API error: ${errorMsg}`);
+  }
   const data = await response.json();
-  return JSON.parse(data.choices[0].message.content);
+  let content = data.choices[0].message.content;
+  content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+  return JSON.parse(content);
 }

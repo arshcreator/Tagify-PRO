@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, onSnapshot, setDoc, collection, getDocs, query, where, getDoc } from 'firebase/firestore';
-import { auth, db } from '../lib/firebase';
+import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { useStore, Asset } from '../store/useStore';
 
 export function FirebaseProvider({ children }: { children: React.ReactNode }) {
@@ -13,26 +13,40 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       
       if (currentUser) {
         // Ensure user profile exists
-        const userRef = doc(db, 'users', currentUser.uid);
-        const userSnap = await getDoc(userRef);
-        
-        if (!userSnap.exists()) {
-          await setDoc(userRef, {
-            uid: currentUser.uid,
-            email: currentUser.email,
-            displayName: currentUser.displayName,
-            photoURL: currentUser.photoURL,
-            createdAt: Date.now(),
-            settings: {
-              geminiKey: '',
-              groqKeys: [],
-              openaiKey: '',
-              titleLengthChars: 100,
-              keywordCount: 49,
-              keywordStyle: 'stock',
-              titleTone: 'descriptive',
+        const path = 'users';
+        const userRef = doc(db, path, currentUser.uid);
+        try {
+          const userSnap = await getDoc(userRef);
+          
+          if (!userSnap.exists()) {
+            const userData: any = {
+              uid: currentUser.uid,
+              email: currentUser.email,
+              createdAt: Date.now(),
+              settings: {
+                geminiKey: '',
+                groqKeys: [],
+                openaiKey: '',
+                titleLengthChars: 100,
+                keywordCount: 49,
+                keywordStyle: 'stock',
+                titleTone: 'descriptive',
+              }
+            };
+            
+            if (currentUser.displayName) userData.displayName = currentUser.displayName;
+            if (currentUser.photoURL) userData.photoURL = currentUser.photoURL;
+
+            await setDoc(userRef, userData);
+          } else {
+            // Migrate existing users to have createdAt
+            const data = userSnap.data();
+            if (!data.createdAt) {
+              await setDoc(userRef, { createdAt: Date.now() }, { merge: true });
             }
-          });
+          }
+        } catch (error) {
+          handleFirestoreError(error, OperationType.GET, path);
         }
       }
       
@@ -46,7 +60,8 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isAuthReady || !user) return;
 
-    const unsubscribe = onSnapshot(doc(db, 'users', user.uid), (docSnap) => {
+    const path = 'users';
+    const unsubscribe = onSnapshot(doc(db, path, user.uid), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         if (data.settings) {
@@ -62,7 +77,7 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
         }
       }
     }, (error) => {
-      console.error("Error fetching settings:", error);
+      handleFirestoreError(error, OperationType.GET, path);
     });
 
     return () => unsubscribe();
@@ -72,7 +87,8 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isAuthReady || !user) return;
 
-    const q = query(collection(db, `users/${user.uid}/history`));
+    const path = `users/${user.uid}/history`;
+    const q = query(collection(db, path));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const currentAssets = useStore.getState().assets;
       const loadedAssets: any[] = [];
@@ -94,7 +110,7 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       
       setAssets([...loadedAssets, ...unsyncedAssets]);
     }, (error) => {
-      console.error("Error fetching assets:", error);
+      handleFirestoreError(error, OperationType.GET, path);
     });
 
     return () => unsubscribe();
